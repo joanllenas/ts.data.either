@@ -1,0 +1,6 @@
+.vscode
+tsconfig.json
+src
+package-lock.json
+.editorconfig
+.travis.yml
