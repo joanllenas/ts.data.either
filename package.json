@@ -1,6 +1,6 @@
 {
   "name": "ts.data.either",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "A Typescript implementation of the Either data type",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
