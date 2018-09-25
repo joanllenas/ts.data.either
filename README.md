@@ -127,7 +127,7 @@ map(add1, left('errors')); // Left('errors')
 
 `andThen<A, B, E = Error>(f: (a: A) => Either<B, E>, value: Either<A, E>): Either<B, E>`
 
-Chains together many computations that may fail.
+Chains together computations that may fail.
 
 ```ts
 const removeFirstElement = <T>(arr: T[]): T[] => {
