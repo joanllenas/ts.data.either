@@ -32,7 +32,7 @@ const head = (arr: number[]): number => {
 // successful operation
 let wrappedValue = map(head, right([99, 109, 22, 65])); // Right(100)
 let num = withDefault(wrappedValue, 0); // unwrap the value from Either
-console.log(num); // 100
+console.log(num); // 99
 
 // failing operation
 wrappedValue = map(head, right([])); // Left(Error('Array is empty'))
@@ -147,5 +147,5 @@ const result = andThen(
   arr => andThen(arr2 => removeFirstLifted(arr2), removeFirstLifted(arr)),
   removeFirstLifted(['a', 'b'])
 );
-withDefault(result, ['default val']); // 'default val'
+withDefault(result, 'default val'); // 'default val'
 ```
