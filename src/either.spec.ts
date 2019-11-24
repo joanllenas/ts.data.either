@@ -10,12 +10,14 @@ import {
   caseOf
 } from './either';
 
-import * as mocha from 'mocha';
 import * as chai from 'chai';
+import * as chaiAsPromised from 'chai-as-promised';
 
+chai.use(chaiAsPromised);
 const expect = chai.expect;
 
-const createError = (value: any) => `Value "${value}" is not an Either type`;
+const createError = <T>(value: T) => `Value "${value}" is not an Either type`;
+const anError = () => new Error('Something is wrong');
 const add1 = (n: number) => n + 1;
 const removeFirstElement = <T>(arr: T[]): T[] => {
   if (arr.length === 0) {
@@ -27,13 +29,14 @@ const removeFirstElement = <T>(arr: T[]): T[] => {
 describe('Either', () => {
   describe('isRight', () => {
     it('should return false when Left is provided', () => {
-      expect(isRight(left(''))).to.be.false;
+      expect(isRight(left(anError()))).to.be.false;
     });
     it('should return true when Right is provided', () => {
       expect(isRight(right('hola'))).to.be.true;
     });
     it('should throw when a non Either type is provided', () => {
-      expect(() => isRight([1, 2, 3] as any)).to.throw(createError([1, 2, 3]));
+      const nonEither: any = [1, 2, 3];
+      expect(() => isRight(nonEither)).to.throw(createError(nonEither));
     });
     it('should throw when null or undefined is provided', () => {
       expect(() => isRight(null)).to.throw(createError(null));
@@ -46,10 +49,11 @@ describe('Either', () => {
       expect(isLeft(right('hola'))).to.be.false;
     });
     it('should return true when Left is provided', () => {
-      expect(isLeft(left('hola'))).to.be.true;
+      expect(isLeft(left(anError()))).to.be.true;
     });
     it('should throw when a non Either type is provided', () => {
-      expect(() => isLeft('lala' as any)).to.throw(createError('lala'));
+      const nonEither: any = [1, 2, 3];
+      expect(() => isLeft(nonEither)).to.throw(createError(nonEither));
     });
     it('should throw when null or undefined is provided', () => {
       expect(() => isLeft(null)).to.throw(createError(null));
@@ -62,10 +66,11 @@ describe('Either', () => {
       expect(withDefault(right(6), 0)).to.equal(6);
     });
     it('should return the default value when Left is provided', () => {
-      expect(withDefault(left('err'), 0)).to.equal(0);
+      expect(withDefault(left(anError()), 0)).to.equal(0);
     });
     it('should throw when a non Either type is provided', () => {
-      expect(() => withDefault('hola' as any, 2)).to.throw(createError('hola'));
+      const nonEither: any = [1, 2, 3];
+      expect(() => withDefault(nonEither, 2)).to.throw(createError(nonEither));
     });
     it('should throw when null or undefined is provided', () => {
       expect(() => withDefault(null, 1)).to.throw(createError(null));
@@ -80,7 +85,7 @@ describe('Either', () => {
       expect(isRight(five)).to.be.true;
     });
     it('should return Left when mapping over Left', () => {
-      const result = map(add1, left('err'));
+      const result = map(add1, left(anError()));
       expect(isLeft(result)).to.be.true;
     });
     it('should return 5 when adding 1 to Right(4)', () => {
@@ -97,7 +102,6 @@ describe('Either', () => {
     it('should return a Left when mapping produces an exception', () => {
       const list = map(removeFirstElement, right([]));
       expect(isLeft(list)).to.be.true;
-      expect(withDefault(list, ['default', 'val'])).to.eql(['default', 'val']);
     });
     it('should throw when mapping over null, undefined or any non Either type', () => {
       expect(() => map(add1, null)).to.throw(createError(null));
@@ -109,7 +113,7 @@ describe('Either', () => {
   });
 
   describe('andThen', () => {
-    const removeFirstLifted = <T, E>(arr: T[]): Either<T[], E> => {
+    const safeRemoveFirst = <T>(arr: T[]): Either<T[]> => {
       try {
         return right(removeFirstElement(arr));
       } catch (error) {
@@ -118,15 +122,15 @@ describe('Either', () => {
     };
     it('should perform chained Right transformations', () => {
       const result = andThen(
-        arr => removeFirstLifted(arr),
-        removeFirstLifted(['a', 'b', 'c'])
+        arr => safeRemoveFirst(arr),
+        safeRemoveFirst(['a', 'b', 'c'])
       );
       expect(withDefault(result, ['default val'])).to.eql(['c']);
     });
     it('should perform chained Right transformations and fail with Left', () => {
       const result = andThen(
-        arr => andThen(arr2 => removeFirstLifted(arr2), removeFirstLifted(arr)),
-        removeFirstLifted(['a', 'b'])
+        arr => andThen(arr2 => safeRemoveFirst(arr2), safeRemoveFirst(arr)),
+        safeRemoveFirst(['a', 'b'])
       );
       expect(withDefault(result, ['default val'])).to.eql(['default val']);
     });
@@ -143,38 +147,102 @@ describe('Either', () => {
 
   describe('caseOf', () => {
     it('should Launch 5 missiles', () => {
-      const result = caseOf(
-        {
-          Left: err => `Error: ${err}`,
-          Right: n => `Launch ${n} missiles`
-        },
-        right('5')
-      );
-      expect(result).to.equal('Launch 5 missiles');
+      return expect(
+        caseOf(
+          {
+            Left: err => `Error: ${err.message}`,
+            Right: n => `Launch ${n} missiles`
+          },
+          right('5')
+        )
+      ).to.eventually.equal('Launch 5 missiles');
     });
-    it('should zzz', () => {
-      const result = caseOf(
-        {
-          Left: () => 'zzz',
-          Right: n => `Launch ${n} missiles`
-        },
-        left('zzz')
-      );
-      expect(result).to.equal('zzz');
+    it('should error', () => {
+      return expect(
+        caseOf(
+          {
+            Left: err => `Error: ${err.message}`,
+            Right: n => `Launch ${n} missiles`
+          },
+          left(anError())
+        )
+      ).to.be.rejectedWith('Error: Something is wrong');
     });
   });
 
   describe('examples', () => {
-    it('should work ', () => {
-      const head = (arr: number[]): number => {
-        if (arr.length === 0) {
-          throw new Error('Array is empty');
+    type Band = {
+      artist: string;
+      bio: string;
+    };
+    const bandsJsonWithContent: { [key: string]: string } = {
+      'bands.json': `
+        [
+          {"artist": "Clark", "bio": "Clark bio..."},
+          {"artist": "Plaid", "bio": "Plaid bio..."}
+        ]
+        `
+    };
+    const bandsJsonWithoutContent: { [key: string]: string } = {
+      'bands.json': ''
+    };
+
+    const generateExample = (
+      filenameToRead: string,
+      folder: { [key: string]: string }
+    ) => {
+      const readFile = (filename: string): Either<string> => {
+        if (folder.hasOwnProperty(filename)) {
+          return right(folder[filename]);
         }
-        return arr.slice(0, 1)[0];
+        return left(new Error(`File ${filename} doesn't exist`));
       };
-      const num = map(head, right([99, 109, 22, 65]));
-      expect(withDefault(map(add1, num), 0)).to.equal(100);
-      expect(withDefault(andThen(n => right(add1(n)), num), 0)).to.equal(100);
+      const bandsJson = readFile(filenameToRead);
+      const bands = map(json => JSON.parse(json) as Band[], bandsJson);
+      const bandNames = map(bands => bands.map(band => band.artist), bands);
+      return bandNames;
+    };
+
+    it('should be all right', () => {
+      const bandNames = generateExample('bands.json', bandsJsonWithContent);
+      return expect(
+        caseOf(
+          {
+            Left: err => err.message,
+            Right: names => names
+          },
+          bandNames
+        )
+      ).to.eventually.deep.equal(['Clark', 'Plaid']);
+    });
+
+    it(`should fail becasue File xyz doesn't exist`, () => {
+      const bandNames = generateExample(
+        'non-existing.json',
+        bandsJsonWithContent
+      );
+      return expect(
+        caseOf(
+          {
+            Left: err => err.message,
+            Right: names => names
+          },
+          bandNames
+        )
+      ).to.be.rejectedWith(`File non-existing.json doesn't exist`);
+    });
+
+    it(`should fail becasue File content is not valid Json`, () => {
+      const bandNames = generateExample('bands.json', bandsJsonWithoutContent);
+      return expect(
+        caseOf(
+          {
+            Left: err => err.message,
+            Right: names => names
+          },
+          bandNames
+        )
+      ).to.be.rejectedWith(`Unexpected end of JSON input`);
     });
   });
 });

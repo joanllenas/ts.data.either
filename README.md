@@ -8,7 +8,7 @@ The Either type encapsulates the idea of a calculation that might have failed.
 An Either value can either be `Right` some value or `Left` some error.
 
 ```ts
-type Either<T, E> = Right<T> | Left<E>;
+type Either<T> = Right<T> | Left<T>;
 ```
 
 ## Install
@@ -20,24 +20,68 @@ npm install ts.data.either --save
 ## Example
 
 ```ts
-import { right, map, withDefault } from 'ts.data.either';
+import {} from 'ts.data.either';
 
-const head = (arr: number[]): number => {
-  if (arr.length === 0) {
-    throw new Error('Array is empty');
-  }
-  return arr.slice(0, 1)[0];
+type Band = {
+  artist: string;
+  bio: string;
+};
+const bandsJsonWithContent: { [key: string]: string } = {
+  'bands.json': `
+    [
+      {"artist": "Clark", "bio": "Clark bio..."},
+      {"artist": "Plaid", "bio": "Plaid bio..."}
+    ]
+    `
+};
+const bandsJsonWithoutContent: { [key: string]: string } = {
+  'bands.json': ''
+};
+const generateExample = (
+  filenameToRead: string,
+  folder: { [key: string]: string }
+) => {
+  const readFile = (filename: string): Either<string> => {
+    if (folder.hasOwnProperty(filename)) {
+      return right(folder[filename]);
+    }
+    return left(new Error(`File ${filename} doesn't exist`));
+  };
+  const bandsJson = readFile(filenameToRead);
+  const bands = map(json => JSON.parse(json) as Band[], bandsJson);
+  const bandNames = map(bands => bands.map(band => band.artist), bands);
+  return bandNames;
 };
 
-// successful operation
-let wrappedValue = map(head, right([99, 109, 22, 65])); // Right(100)
-let num = withDefault(wrappedValue, 0); // unwrap the value from Either
-console.log(num); // 99
+// Should compute band names properly
+let bandNames = generateExample('bands.json', bandsJsonWithContent);
+caseOf(
+  {
+    Left: err => err.message,
+    Right: names => names
+  },
+  bandNames
+).then(names => console.log(names)); // ['Clark', 'Plaid']
 
-// failing operation
-wrappedValue = map(head, right([])); // Left(Error('Array is empty'))
-num = withDefault(wrappedValue, 0); // unwrap the value from Either
-console.log(num); // 0
+// Should fail becasue file non-existing.json doesn't exist
+bandNames = generateExample('non-existing.json', bandsJsonWithContent);
+caseOf(
+  {
+    Left: err => err.message,
+    Right: names => names
+  },
+  bandNames
+).catch(err => console.log(err)); // File non-existing.json doesn't exist
+
+// should fail becasue file content is not valid Json
+bandNames = generateExample('bands.json', bandsJsonWithoutContent);
+caseOf(
+  {
+    Left: err => err.message,
+    Right: names => names
+  },
+  bandNames
+).catch(err => console.log(err)); // Unexpected end of JSON input
 ```
 
 ## Api
@@ -46,7 +90,7 @@ _(Inspired by elm-lang)_
 
 ### right
 
-`right<T>(value: T): Right<T>`
+`right<T>(value: T): Either<T>`
 
 Wraps a value in an instance of `Right`.
 
@@ -56,7 +100,7 @@ right(5); // Right<number>(5)
 
 ### left
 
-`left<E>(error: E): Left<E>`
+`left<T>(error: Error): Either<T>`
 
 Creates an instance of `Left`.
 
@@ -66,17 +110,17 @@ left('Something bad happened'); // Left<string>('Something bad happened')
 
 ### isRight
 
-`isRight<T, E>(value: Either<T, E>)`
+`isRight<T>(value: Either<T>): boolean`
 
 Returns true if a value is an instance of `Right`.
 
 ```ts
-isRight(left('error')); // false
+isRight(left(new Error('Wrong!'))); // false
 ```
 
 ### isLeft
 
-`isLeft<T, E>(value: Either<T, E>)`
+`isLeft<T>(value: Either<T>): boolean`
 
 Returns true if a value is an instance of `Left`.
 
@@ -86,46 +130,46 @@ isLeft(right(5)); // false
 
 ### withDefault
 
-`withDefault<T, E>(value: Either<T, E>, defaultValue: T): T`
+`withDefault<T>(value: Either<T>, defaultValue: T): T`
 
 If `value` is an instance of `Right` it returns its wrapped value, if it's an instance of `Left` it returns the `defaultValue`.
 
 ```ts
 withDefault(right(5), 0); // 5
-withDefault(left('error'), 0); // 0
+withDefault(left(new Error('Wrong!')), 0); // 0
 ```
 
 ### caseOf
 
-`caseOf = <A, B, E = Error>(caseof: {Right: (v: A) => B; Left: (v: E) => B;}, value: Either<A, E> ): B`
+`<A, B>(caseof: {Right: (v: A) => B; Left: (v: Error) => any;}, value: Either<A>): Promise<B>`
 
-Run different computations depending on whether an `Either` is `Right` or `Left`.
+Run different computations depending on whether an `Either` is `Right` or `Left` and returns a `Promise`
 
 ```ts
 caseOf(
   {
-    Left: () => 'zzz',
+    Left: err => `Error: ${err.message}`,
     Right: n => `Launch ${n} missiles`
   },
-  right(5)
-); // 'Launch 5 missiles'
+  right('5')
+).then(res => console.log(res)); // 'Launch 5 missiles'
 ```
 
 ### map
 
-`map<A, B, E = Error>(f: (a: A) => B, value: Either<A, E>): Either<B, E>`
+`<A, B>(f: (a: A) => B, value: Either<A>): Either<B>`
 
 Transforms an `Either` value with a given function.
 
 ```ts
 const add1 = (n: number) => n + 1;
 map(add1, right(4)); // Right<number>(5)
-map(add1, left('errors')); // Left('errors')
+map(add1, left(new Error('Something bad happened'))); // Left('Something bad happened')
 ```
 
 ### andThen
 
-`andThen<A, B, E = Error>(f: (a: A) => Either<B, E>, value: Either<A, E>): Either<B, E>`
+`andThen<A, B>(f: (a: A) => Either<B>, value: Either<A>): Either<B>`
 
 Chains together computations that may fail.
 
@@ -136,7 +180,7 @@ const removeFirstElement = <T>(arr: T[]): T[] => {
   }
   return arr.slice(1);
 };
-const removeFirstLifted = <T, E>(arr: T[]): Either<T[], E> => {
+const safeRemoveFirst = <T>(arr: T[]): Either<T[]> => {
   try {
     return right(removeFirstElement(arr));
   } catch (error) {
@@ -144,8 +188,9 @@ const removeFirstLifted = <T, E>(arr: T[]): Either<T[], E> => {
   }
 };
 const result = andThen(
-  arr => andThen(arr2 => removeFirstLifted(arr2), removeFirstLifted(arr)),
-  removeFirstLifted(['a', 'b'])
+  arr =>
+    andThen(arr2 => safeRemoveFirstElement(arr2), safeRemoveFirstElement(arr)),
+  safeRemoveFirstElement(['a', 'b'])
 );
 withDefault(result, 'default val'); // 'default val'
 ```

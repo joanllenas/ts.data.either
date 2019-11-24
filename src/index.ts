@@ -1,6 +1,4 @@
 export {
-  Right,
-  Left,
   Either,
   left,
   right,
