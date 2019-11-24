@@ -4,9 +4,8 @@
     "target": "es5",
     "declaration": true,
     "noImplicitAny": true,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "lib": ["es2015"]
   },
-  "include": [
-    "src/**/*"
-  ]
+  "include": ["src/**/*"]
 }
