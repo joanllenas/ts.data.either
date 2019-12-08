@@ -3,9 +3,9 @@
 [![Build Status](https://travis-ci.org/joanllenas/ts.data.either.svg?branch=master)](https://travis-ci.org/joanllenas/ts.data.either)
 [![npm version](https://badge.fury.io/js/ts.data.either.svg)](https://badge.fury.io/js/ts.data.either)
 
-The Either data type encapsulates the idea of a computation that may fail.
+The `Either` data type encapsulates the idea of a computation that may fail.
 
-An Either value can either be `Right` some value or `Left` some error.
+An `Either` value can either be `Right` some value or `Left` some error.
 
 ```ts
 type Either<T> = Right<T> | Left<T>;
