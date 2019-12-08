@@ -20,7 +20,7 @@ npm install ts.data.either --save
 ## Example
 
 ```ts
-import {} from 'ts.data.either';
+import { map, Either, left, right, caseOf} from 'ts.data.either';
 
 type Band = {
   artist: string;
