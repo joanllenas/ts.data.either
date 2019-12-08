@@ -9,12 +9,6 @@ class Left<T> {
 
 export type Either<T> = Right<T> | Left<T>;
 
-const assertIsEither = function<T>(value: Either<T>) {
-  if (!(value instanceof Right || value instanceof Left)) {
-    throw new Error(`Value "${value}" is not an Either type`);
-  }
-};
-
 export const right = <T>(value: T): Either<T> => {
   return new Right(value);
 };
@@ -24,13 +18,11 @@ export const left = <T>(error: Error): Either<T> => {
 };
 
 export const isRight = <T>(value: Either<T>): boolean => {
-  assertIsEither(value);
   return value instanceof Right;
 };
 
 export const isLeft = <T>(value: Either<T>): boolean => {
-  assertIsEither(value);
-  return value instanceof Left;
+  return !(value instanceof Right);
 };
 
 export const withDefault = <T>(value: Either<T>, defaultValue: T): T => {

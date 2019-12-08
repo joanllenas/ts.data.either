@@ -20,7 +20,7 @@ npm install ts.data.either --save
 ## Example
 
 ```ts
-import { map, Either, left, right, caseOf} from 'ts.data.either';
+import { map, Either, left, right, caseOf } from 'ts.data.either';
 
 type Band = {
   artist: string;
@@ -122,10 +122,12 @@ isRight(left(new Error('Wrong!'))); // false
 
 `isLeft<T>(value: Either<T>): boolean`
 
-Returns true if a value is an instance of `Left`.
+Returns true if a value is not an instance of `Right`.
 
 ```ts
 isLeft(right(5)); // false
+isLeft(left('Hi!')); // true
+isLeft(null); // true
 ```
 
 ### withDefault

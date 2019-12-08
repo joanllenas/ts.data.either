@@ -16,7 +16,6 @@ import * as chaiAsPromised from 'chai-as-promised';
 chai.use(chaiAsPromised);
 const expect = chai.expect;
 
-const createError = <T>(value: T) => `Value "${value}" is not an Either type`;
 const anError = () => new Error('Something is wrong');
 const add1 = (n: number) => n + 1;
 const removeFirstElement = <T>(arr: T[]): T[] => {
@@ -34,13 +33,13 @@ describe('Either', () => {
     it('should return true when Right is provided', () => {
       expect(isRight(right('hola'))).to.be.true;
     });
-    it('should throw when a non Either type is provided', () => {
+    it('should return false when a non Either type is provided', () => {
       const nonEither: any = [1, 2, 3];
-      expect(() => isRight(nonEither)).to.throw(createError(nonEither));
+      expect(isRight(nonEither)).to.be.false;
     });
-    it('should throw when null or undefined is provided', () => {
-      expect(() => isRight(null)).to.throw(createError(null));
-      expect(() => isRight(undefined)).to.throw(createError(undefined));
+    it('should return false when null or undefined is provided', () => {
+      expect(isRight(null)).to.be.false;
+      expect(isRight(undefined)).to.be.false;
     });
   });
 
@@ -51,13 +50,13 @@ describe('Either', () => {
     it('should return true when Left is provided', () => {
       expect(isLeft(left(anError()))).to.be.true;
     });
-    it('should throw when a non Either type is provided', () => {
+    it('should return true when a non Either type is provided', () => {
       const nonEither: any = [1, 2, 3];
-      expect(() => isLeft(nonEither)).to.throw(createError(nonEither));
+      expect(isLeft(nonEither)).to.be.true;
     });
-    it('should throw when null or undefined is provided', () => {
-      expect(() => isLeft(null)).to.throw(createError(null));
-      expect(() => isLeft(undefined)).to.throw(createError(undefined));
+    it('should return true when null or undefined is provided', () => {
+      expect(isLeft(null)).to.be.true;
+      expect(isLeft(undefined)).to.be.true;
     });
   });
 
@@ -68,13 +67,13 @@ describe('Either', () => {
     it('should return the default value when Left is provided', () => {
       expect(withDefault(left(anError()), 0)).to.equal(0);
     });
-    it('should throw when a non Either type is provided', () => {
+    it('should return the default value when a non Either type is provided', () => {
       const nonEither: any = [1, 2, 3];
-      expect(() => withDefault(nonEither, 2)).to.throw(createError(nonEither));
+      expect(withDefault(nonEither, 2)).to.eq(2);
     });
-    it('should throw when null or undefined is provided', () => {
-      expect(() => withDefault(null, 1)).to.throw(createError(null));
-      expect(() => withDefault(undefined, 1)).to.throw(createError(undefined));
+    it('should return the default value when null or undefined is provided', () => {
+      expect(withDefault(null, 1)).to.eq(1);
+      expect(withDefault(undefined, 1)).to.eq(1);
     });
   });
 
@@ -103,12 +102,10 @@ describe('Either', () => {
       const list = map(removeFirstElement, right([]));
       expect(isLeft(list)).to.be.true;
     });
-    it('should throw when mapping over null, undefined or any non Either type', () => {
-      expect(() => map(add1, null)).to.throw(createError(null));
-      expect(() => map(add1, undefined)).to.throw(createError(undefined));
-      expect(() => map(add1, {} as any)).to.throw(
-        createError('[object Object]')
-      );
+    it('should return a Left when mapping over null, undefined or any non Either type', () => {
+      expect(isLeft(map(add1, null))).to.be.true;
+      expect(isLeft(map(add1, undefined))).to.be.true;
+      expect(isLeft(map(add1, {} as any))).to.be.true;
     });
   });
 
@@ -134,14 +131,10 @@ describe('Either', () => {
       );
       expect(withDefault(result, ['default val'])).to.eql(['default val']);
     });
-    it('should throw when chaining over null, undefined or any non Either type', () => {
-      expect(() => andThen(a => right(a), null)).to.throw(createError(null));
-      expect(() => andThen(a => right(a), undefined)).to.throw(
-        createError(undefined)
-      );
-      expect(() => andThen(a => right(a), {} as any)).to.throw(
-        createError('[object Object]')
-      );
+    it('should return left throw when chaining over null, undefined or any non Either type', () => {
+      expect(isLeft(andThen(a => right(a), null))).to.be.true;
+      expect(isLeft(andThen(a => right(a), undefined))).to.be.true;
+      expect(isLeft(andThen(a => right(a), {} as any))).to.be.true;
     });
   });
 
