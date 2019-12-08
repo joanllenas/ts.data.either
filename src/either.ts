@@ -73,3 +73,14 @@ export const caseOf = <A, B>(
       return Promise.resolve(caseof.Right((value as Right<A>)._value));
   }
 };
+
+export const tryCatch = <A>(
+  f: () => A,
+  onError: (e: Error) => Error
+): Either<A> => {
+  try {
+    return right(f());
+  } catch (e) {
+    return left(onError(e));
+  }
+};

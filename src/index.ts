@@ -7,5 +7,6 @@ export {
   withDefault,
   map,
   andThen,
-  caseOf
+  caseOf,
+  tryCatch
 } from './either';

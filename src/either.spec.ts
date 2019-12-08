@@ -7,7 +7,8 @@ import {
   map,
   andThen,
   Either,
-  caseOf
+  caseOf,
+  tryCatch
 } from './either';
 
 import * as chai from 'chai';
@@ -163,6 +164,32 @@ describe('Either', () => {
     });
   });
 
+  describe('tryCatch', () => {
+    let shouldFail: boolean;
+    const fn = () => {
+      if (shouldFail) {
+        throw anError();
+      }
+      return 'Ok';
+    };
+    it('should convert a failing function into a Left', () => {
+      shouldFail = true;
+      return expect(
+        caseOf(
+          {
+            Left: err => `Error: ${err.message}`,
+            Right: n => `Launch ${n} missiles`
+          },
+          tryCatch(fn, err => err)
+        )
+      ).to.be.rejectedWith('Error: Something is wrong');
+    });
+    it('should convert a successful function into a Right', () => {
+      shouldFail = false;
+      expect(tryCatch(fn, err => err)).to.deep.equal(right('Ok'));
+    });
+  });
+
   describe('examples', () => {
     type Band = {
       artist: string;
@@ -234,6 +261,22 @@ describe('Either', () => {
             Right: names => names
           },
           bandNames
+        )
+      ).to.be.rejectedWith(`Unexpected end of JSON input`);
+    });
+
+    it('should be a good tryCatch example', () => {
+      const res = tryCatch(
+        () => JSON.parse(''),
+        err => err
+      );
+      return expect(
+        caseOf(
+          {
+            Left: err => err.message,
+            Right: result => result
+          },
+          res
         )
       ).to.be.rejectedWith(`Unexpected end of JSON input`);
     });

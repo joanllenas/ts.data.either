@@ -143,7 +143,7 @@ withDefault(left(new Error('Wrong!')), 0); // 0
 
 ### caseOf
 
-`<A, B>(caseof: {Right: (v: A) => B; Left: (v: Error) => any;}, value: Either<A>): Promise<B>`
+`caseOf<A, B>(caseof: {Right: (v: A) => B; Left: (v: Error) => any;}, value: Either<A>): Promise<B>`
 
 Run different computations depending on whether an `Either` is `Right` or `Left` and returns a `Promise`
 
@@ -159,7 +159,7 @@ caseOf(
 
 ### map
 
-`<A, B>(f: (a: A) => B, value: Either<A>): Either<B>`
+`map<A, B>(f: (a: A) => B, value: Either<A>): Either<B>`
 
 Transforms an `Either` value with a given function.
 
@@ -167,6 +167,19 @@ Transforms an `Either` value with a given function.
 const add1 = (n: number) => n + 1;
 map(add1, right(4)); // Right<number>(5)
 map(add1, left(new Error('Something bad happened'))); // Left('Something bad happened')
+```
+
+### tryCatch
+
+`tryCatch<A>(f: () => A, onError: (e: Error) => Error): Either<A>`
+
+Transforms a function (that might throw an exception) that produces `A` to a function that produces `Either<A>`.
+
+```ts
+tryCatch(
+  () => JSON.parse(''),
+  err => err
+); // Left('Unexpected end of JSON input')
 ```
 
 ### andThen
