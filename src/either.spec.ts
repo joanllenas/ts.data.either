@@ -10,7 +10,6 @@ import {
   caseOf,
   tryCatch
 } from './either';
-import { pipeline } from 'pipe-and-compose';
 
 import * as chai from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
@@ -26,6 +25,8 @@ const removeFirstElement = <T>(arr: T[]): T[] => {
   }
   return arr.slice(1);
 };
+const pipeline = (initialValue: any, ...fns: Function[]) =>
+  fns.reduce((acc, fn) => fn(acc), initialValue);
 
 describe('Either', () => {
   describe('isRight', () => {
@@ -132,6 +133,27 @@ describe('Either', () => {
         safeRemoveFirst(['a', 'b'])
       );
       expect(withDefault(result, ['default val'])).to.eql(['default val']);
+    });
+    it('should perform chained Right transformations and fail with Left 2', () => {
+      const result = pipeline(
+        ['a', 'b', 'c'],
+        safeRemoveFirst,
+        (arr: Either<string[]>) => andThen(safeRemoveFirst, arr),
+        (arr: Either<string[]>) => andThen(safeRemoveFirst, arr),
+        (arr: Either<string[]>) => andThen(safeRemoveFirst, arr),
+        (arr: Either<string[]>) => andThen(safeRemoveFirst, arr),
+        (arr: Either<string[]>) => andThen(safeRemoveFirst, arr),
+        (arr: Either<string[]>) => andThen(safeRemoveFirst, arr)
+      );
+      expect(
+        caseOf(
+          {
+            Right: (arr: string[]) => arr.toString(),
+            Left: (err: Error) => err.message
+          },
+          result
+        )
+      ).to.equal('Array is empty');
     });
     it('should return left throw when chaining over null, undefined or any non Either type', () => {
       expect(isLeft(andThen(a => right(a), null as any))).to.be.true;
@@ -258,10 +280,10 @@ describe('Either', () => {
           right(users.find((user: UserJson) => user.id === id) || null);
         return pipeline(
           filename,
-          fname => validateJsonFilename(fname),
-          eitherFname => andThen(readFileContent, eitherFname),
-          eitherJson => andThen(parseJson, eitherJson),
-          eitherUsers => andThen(findUserById, eitherUsers)
+          (fname: string) => validateJsonFilename(fname),
+          (fname: Either<string>) => andThen(readFileContent, fname),
+          (json: Either<string>) => andThen(parseJson, json),
+          (users: Either<UserJson[]>) => andThen(findUserById, users)
         );
       };
 
@@ -337,16 +359,16 @@ describe('Either', () => {
 
       const usersFull: UserJson[] = pipeline(
         'something.json',
-        fname => readFileContent(fname),
-        eitherContent => andThen(parseJson, eitherContent),
-        eitherUsers => withDefault(eitherUsers, [])
+        (fname: string) => readFileContent(fname),
+        (json: Either<string>) => andThen(parseJson, json),
+        (users: Either<UserJson[]>) => withDefault(users, [])
       );
 
       const usersEmpty: UserJson[] = pipeline(
         'nothing.json',
-        fname => readFileContent(fname),
-        eitherContent => andThen(parseJson, eitherContent),
-        eitherUsers => withDefault(eitherUsers, [])
+        (fname: string) => readFileContent(fname),
+        (json: Either<string>) => andThen(parseJson, json),
+        (users: Either<UserJson[]>) => withDefault(users, [])
       );
 
       expect(usersFull).to.deep.equal([

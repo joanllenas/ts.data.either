@@ -2,12 +2,12 @@ class Right<T> {
   private _tag = 'right';
   constructor(readonly _value: T) {}
 }
-class Left<T> {
+class Left {
   private _tag = 'left';
   constructor(readonly _error: Error) {}
 }
 
-export type Either<T> = Right<T> | Left<T>;
+export type Either<T> = Right<T> | Left;
 
 export const right = <T>(value: T): Either<T> => {
   return new Right(value);
@@ -53,7 +53,7 @@ export const andThen = <A, B>(
 ): Either<B> => {
   switch (isLeft(value)) {
     case true:
-      return value as Left<B>;
+      return value as Left;
     case false:
       return f((value as Right<A>)._value);
   }
@@ -68,7 +68,7 @@ export const caseOf = <A, B>(
 ): B => {
   switch (isLeft(value)) {
     case true:
-      return caseof.Left((value as Left<A>)._error);
+      return caseof.Left((value as Left)._error);
     case false:
       return caseof.Right((value as Right<A>)._value);
   }

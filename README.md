@@ -8,7 +8,7 @@ The `Either` data type encapsulates the idea of a computation that may fail.
 An `Either` value can either be `Right` some value or `Left` some error.
 
 ```ts
-type Either<T> = Right<T> | Left<T>;
+type Either<T> = Right<T> | Left;
 ```
 
 ## Install
@@ -21,7 +21,6 @@ npm install ts.data.either --save
 
 ```ts
 import { Either, tryCatch, andThen, withDefault } from './either';
-import { pipeline } from 'pipe-and-compose';
 
 interface UserJson {
   id: number;
@@ -53,12 +52,14 @@ const readFile = (filename: string): string => {
   return fileContents;
 };
 
+// Wraps the read file operation in an Either
 const readFileContent = (filename: string): Either<string> =>
   tryCatch(
     () => readFile(filename),
     err => err
   );
 
+// Wraps the json parsing operation in an Either
 const parseJson = (json: string): Either<UserJson[]> =>
   tryCatch(
     () => JSON.parse(json),
@@ -66,19 +67,22 @@ const parseJson = (json: string): Either<UserJson[]> =>
   );
 
 // The pipeline function just makes function invocations flow
+const pipeline = (initialValue: any, ...fns: Function[]) =>
+  fns.reduce((acc, fn) => fn(acc), initialValue);
+
 const usersFull: UserJson[] = pipeline(
   'something.json',
-  fname => readFileContent(fname),
-  eitherContent => andThen(parseJson, eitherContent),
-  eitherUsers => withDefault(eitherUsers, [])
-); // returns the Array of users
+  (fname: string) => readFileContent(fname),
+  (json: Either<string>) => andThen(parseJson, json),
+  (users: Either<UserJson[]>) => withDefault(users, [])
+); // returns the Array of users because all intermediate operations have succeeded
 
 const usersEmpty: UserJson[] = pipeline(
   'nothing.json',
-  fname => readFileContent(fname),
-  eitherContent => andThen(parseJson, eitherContent),
-  eitherUsers => withDefault(eitherUsers, [])
-); // returns an empty Array
+  (fname: string) => readFileContent(fname),
+  (json: Either<string>) => andThen(parseJson, json),
+  (users: Either<UserJson[]>) => withDefault(users, [])
+); // returns an empty Array because the readFile operations failed
 ```
 
 ## Api
@@ -102,7 +106,8 @@ right(5); // Right<number>(5)
 Creates an instance of `Left`.
 
 ```ts
-left('Something bad happened'); // Left<string>('Something bad happened')
+left(new Error('Something bad happened')); // Left<unknown>(Error('Something bad happened'))
+left<number>(new Error('The calculation failed')); // Left<number>(Error('The calculation failed'))
 ```
 
 ### isRight
@@ -192,6 +197,7 @@ const removeFirstElement = <T>(arr: T[]): T[] => {
   }
   return arr.slice(1);
 };
+
 const safeRemoveFirst = <T>(arr: T[]): Either<T[]> => {
   try {
     return right(removeFirstElement(arr));
@@ -199,10 +205,20 @@ const safeRemoveFirst = <T>(arr: T[]): Either<T[]> => {
     return left(error);
   }
 };
-const result = andThen(
-  arr =>
-    andThen(arr2 => safeRemoveFirstElement(arr2), safeRemoveFirstElement(arr)),
-  safeRemoveFirstElement(['a', 'b'])
+
+// The pipeline function just makes function invocations flow
+const pipeline = (initialValue: any, ...fns: Function[]) =>
+  fns.reduce((acc, fn) => fn(acc), initialValue);
+
+const result: string[] = pipeline(
+  ['a', 'b', 'c'],
+  safeRemoveFirst, // Right(['b', 'c'])
+  (arr: Either<string[]>) => andThen(safeRemoveFirst, arr), // Right(['b'])
+  (arr: Either<string[]>) => andThen(safeRemoveFirst, arr), // Right([])
+  (arr: Either<string[]>) => andThen(safeRemoveFirst, arr), // Left(Error('Array is empty'))
+  (arr: Either<string[]>) => andThen(safeRemoveFirst, arr), // Left(Error('Array is empty'))
+  (arr: Either<string[]>) => withDefault(arr, [])
 );
-withDefault(result, 'default val'); // 'default val'
+
+console.log(result); // []
 ```

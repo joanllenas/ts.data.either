@@ -1,6 +1,6 @@
 {
   "name": "ts.data.either",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "A Typescript implementation of the Either data type",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -32,7 +32,6 @@
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
     "mocha": "^6.2.2",
-    "pipe-and-compose": "0.0.6",
     "prettier": "^1.19.1",
     "ts-node": "^8.5.2",
     "typescript": "^3.7.2"
