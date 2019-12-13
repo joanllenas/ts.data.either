@@ -25,6 +25,8 @@ const removeFirstElement = <T>(arr: T[]): T[] => {
   }
   return arr.slice(1);
 };
+const pipeline = (initialValue: any, ...fns: Function[]) =>
+  fns.reduce((acc, fn) => fn(acc), initialValue);
 
 describe('Either', () => {
   describe('isRight', () => {
@@ -39,8 +41,8 @@ describe('Either', () => {
       expect(isRight(nonEither)).to.be.false;
     });
     it('should return false when null or undefined is provided', () => {
-      expect(isRight(null)).to.be.false;
-      expect(isRight(undefined)).to.be.false;
+      expect(isRight(null as any)).to.be.false;
+      expect(isRight(undefined as any)).to.be.false;
     });
   });
 
@@ -56,8 +58,8 @@ describe('Either', () => {
       expect(isLeft(nonEither)).to.be.true;
     });
     it('should return true when null or undefined is provided', () => {
-      expect(isLeft(null)).to.be.true;
-      expect(isLeft(undefined)).to.be.true;
+      expect(isLeft(null as any)).to.be.true;
+      expect(isLeft(undefined as any)).to.be.true;
     });
   });
 
@@ -73,8 +75,8 @@ describe('Either', () => {
       expect(withDefault(nonEither, 2)).to.eq(2);
     });
     it('should return the default value when null or undefined is provided', () => {
-      expect(withDefault(null, 1)).to.eq(1);
-      expect(withDefault(undefined, 1)).to.eq(1);
+      expect(withDefault(null as any, 1)).to.eq(1);
+      expect(withDefault(undefined as any, 1)).to.eq(1);
     });
   });
 
@@ -104,8 +106,8 @@ describe('Either', () => {
       expect(isLeft(list)).to.be.true;
     });
     it('should return a Left when mapping over null, undefined or any non Either type', () => {
-      expect(isLeft(map(add1, null))).to.be.true;
-      expect(isLeft(map(add1, undefined))).to.be.true;
+      expect(isLeft(map(add1, null as any))).to.be.true;
+      expect(isLeft(map(add1, undefined as any))).to.be.true;
       expect(isLeft(map(add1, {} as any))).to.be.true;
     });
   });
@@ -132,16 +134,37 @@ describe('Either', () => {
       );
       expect(withDefault(result, ['default val'])).to.eql(['default val']);
     });
+    it('should perform chained Right transformations and fail with Left 2', () => {
+      const result = pipeline(
+        ['a', 'b', 'c'],
+        safeRemoveFirst,
+        (arr: Either<string[]>) => andThen(safeRemoveFirst, arr),
+        (arr: Either<string[]>) => andThen(safeRemoveFirst, arr),
+        (arr: Either<string[]>) => andThen(safeRemoveFirst, arr),
+        (arr: Either<string[]>) => andThen(safeRemoveFirst, arr),
+        (arr: Either<string[]>) => andThen(safeRemoveFirst, arr),
+        (arr: Either<string[]>) => andThen(safeRemoveFirst, arr)
+      );
+      expect(
+        caseOf(
+          {
+            Right: (arr: string[]) => arr.toString(),
+            Left: (err: Error) => err.message
+          },
+          result
+        )
+      ).to.equal('Array is empty');
+    });
     it('should return left throw when chaining over null, undefined or any non Either type', () => {
-      expect(isLeft(andThen(a => right(a), null))).to.be.true;
-      expect(isLeft(andThen(a => right(a), undefined))).to.be.true;
+      expect(isLeft(andThen(a => right(a), null as any))).to.be.true;
+      expect(isLeft(andThen(a => right(a), undefined as any))).to.be.true;
       expect(isLeft(andThen(a => right(a), {} as any))).to.be.true;
     });
   });
 
   describe('caseOf', () => {
     it('should Launch 5 missiles', () => {
-      return expect(
+      expect(
         caseOf(
           {
             Left: err => `Error: ${err.message}`,
@@ -149,10 +172,10 @@ describe('Either', () => {
           },
           right('5')
         )
-      ).to.eventually.equal('Launch 5 missiles');
+      ).to.equal('Launch 5 missiles');
     });
     it('should error', () => {
-      return expect(
+      expect(
         caseOf(
           {
             Left: err => `Error: ${err.message}`,
@@ -160,7 +183,7 @@ describe('Either', () => {
           },
           left(anError())
         )
-      ).to.be.rejectedWith('Error: Something is wrong');
+      ).to.equal('Error: Something is wrong');
     });
   });
 
@@ -174,7 +197,7 @@ describe('Either', () => {
     };
     it('should convert a failing function into a Left', () => {
       shouldFail = true;
-      return expect(
+      expect(
         caseOf(
           {
             Left: err => `Error: ${err.message}`,
@@ -182,7 +205,7 @@ describe('Either', () => {
           },
           tryCatch(fn, err => err)
         )
-      ).to.be.rejectedWith('Error: Something is wrong');
+      ).to.equal('Error: Something is wrong');
     });
     it('should convert a successful function into a Right', () => {
       shouldFail = false;
@@ -190,95 +213,177 @@ describe('Either', () => {
     });
   });
 
-  describe('examples', () => {
-    type Band = {
-      artist: string;
-      bio: string;
-    };
-    const bandsJsonWithContent: { [key: string]: string } = {
-      'bands.json': `
-        [
-          {"artist": "Clark", "bio": "Clark bio..."},
-          {"artist": "Plaid", "bio": "Plaid bio..."}
-        ]
-        `
-    };
-    const bandsJsonWithoutContent: { [key: string]: string } = {
-      'bands.json': ''
-    };
-
-    const generateExample = (
-      filenameToRead: string,
-      folder: { [key: string]: string }
-    ) => {
-      const readFile = (filename: string): Either<string> => {
-        if (folder.hasOwnProperty(filename)) {
-          return right(folder[filename]);
+  describe('example', () => {
+    it('should work', () => {
+      /**
+       * getUserById( id: number ): Either<UserJson | null>;
+       *
+       * 1. Validate that the Json file name is valid
+       * 2. Read data from file
+       * 3. Parse json
+       * 4. Find the user in the array and return it if found or return null otherwise
+       * 5. Maybe?
+       */
+      interface UserJson {
+        id: number;
+        nickname: string;
+        email: string;
+        bio?: string | null;
+        dob?: string | null;
+      }
+      const readFile = (filename: string): string => {
+        const fileSystem: { [key: string]: string } = {
+          'something.json': `
+          [
+            {
+              "id": 1,
+              "nickname": "rick",
+              "email": "rick@c137.com",
+              "bio": "Rick Sanchez of Earth Dimension C-137",
+              "dob": "3139-03-04T23:00:00.000Z"
+            },
+            {
+              "id": 2,
+              "nickname": "morty",
+              "email": "morty@c137.com",
+              "bio": null,
+              "dob": "2005-04-08T22:00:00.000Z"
+            }
+          ]`
+        };
+        const fileContents = fileSystem[filename];
+        if (fileContents === undefined) {
+          throw new Error(`${filename} does not exists.`);
         }
-        return left(new Error(`File ${filename} doesn't exist`));
+        return fileContents;
+      }; // throws if file does not exists
+
+      const getUserById = (
+        filename: string,
+        id: number
+      ): Either<UserJson | null> => {
+        const validateJsonFilename = (filename: string): Either<string> =>
+          filename.endsWith('.json')
+            ? right(filename)
+            : left(new Error(`${filename} is not a valid json file.`));
+        const readFileContent = (filename: string): Either<string> =>
+          tryCatch(
+            () => readFile(filename),
+            err => err
+          );
+        const parseJson = (json: string): Either<UserJson[]> =>
+          tryCatch(
+            () => JSON.parse(json),
+            err => new Error(`There was an error parsing this Json.`)
+          );
+        const findUserById = (users: UserJson[]): Either<UserJson | null> =>
+          right(users.find((user: UserJson) => user.id === id) || null);
+        return pipeline(
+          filename,
+          (fname: string) => validateJsonFilename(fname),
+          (fname: Either<string>) => andThen(readFileContent, fname),
+          (json: Either<string>) => andThen(parseJson, json),
+          (users: Either<UserJson[]>) => andThen(findUserById, users)
+        );
       };
-      const bandsJson = readFile(filenameToRead);
-      const bands = map(json => JSON.parse(json) as Band[], bandsJson);
-      const bandNames = map(bands => bands.map(band => band.artist), bands);
-      return bandNames;
-    };
 
-    it('should be all right', () => {
-      const bandNames = generateExample('bands.json', bandsJsonWithContent);
-      return expect(
-        caseOf(
-          {
-            Left: err => err.message,
-            Right: names => names
-          },
-          bandNames
-        )
-      ).to.eventually.deep.equal(['Clark', 'Plaid']);
-    });
-
-    it(`should fail becasue File xyz doesn't exist`, () => {
-      const bandNames = generateExample(
-        'non-existing.json',
-        bandsJsonWithContent
+      expect(getUserById('something.json', 2)).to.deep.equal(
+        right({
+          id: 2,
+          nickname: 'morty',
+          email: 'morty@c137.com',
+          bio: null,
+          dob: '2005-04-08T22:00:00.000Z'
+        })
       );
-      return expect(
+      expect(getUserById('something.json', 3)).to.deep.equal(right(null));
+      expect(
         caseOf(
           {
-            Left: err => err.message,
-            Right: names => names
+            Left: err => `Error: ${err.message}`,
+            Right: n => `Launch ${n} missiles`
           },
-          bandNames
+          getUserById('nothing.json', 999)
         )
-      ).to.be.rejectedWith(`File non-existing.json doesn't exist`);
+      ).to.equal('Error: nothing.json does not exists.');
     });
 
-    it(`should fail becasue File content is not valid Json`, () => {
-      const bandNames = generateExample('bands.json', bandsJsonWithoutContent);
-      return expect(
-        caseOf(
-          {
-            Left: err => err.message,
-            Right: names => names
-          },
-          bandNames
-        )
-      ).to.be.rejectedWith(`Unexpected end of JSON input`);
-    });
+    it('should work simple', () => {
+      /**
+       * getUserById( id: number ): Either<UserJson | null>;
+       *
+       * 1. Validate that the Json file name is valid
+       * 2. Read data from file
+       * 3. Parse json
+       * 4. Find the user in the array and return it if found or return null otherwise
+       * 5. Maybe?
+       */
+      interface UserJson {
+        id: number;
+        nickname: string;
+        email: string;
+      }
+      const readFile = (filename: string): string => {
+        const fileSystem: { [key: string]: string } = {
+          'something.json': `
+          [
+            {
+              "id": 1,
+              "nickname": "rick",
+              "email": "rick@c137.com"
+            },
+            {
+              "id": 2,
+              "nickname": "morty",
+              "email": "morty@c137.com"
+            }
+          ]`
+        };
+        const fileContents = fileSystem[filename];
+        if (fileContents === undefined) {
+          throw new Error(`${filename} does not exists.`);
+        }
+        return fileContents;
+      }; // throws if file does not exists
 
-    it('should be a good tryCatch example', () => {
-      const res = tryCatch(
-        () => JSON.parse(''),
-        err => err
+      const readFileContent = (filename: string): Either<string> =>
+        tryCatch(
+          () => readFile(filename),
+          err => err
+        );
+      const parseJson = (json: string): Either<UserJson[]> =>
+        tryCatch(
+          () => JSON.parse(json),
+          err => new Error(`There was an error parsing this Json.`)
+        );
+
+      const usersFull: UserJson[] = pipeline(
+        'something.json',
+        (fname: string) => readFileContent(fname),
+        (json: Either<string>) => andThen(parseJson, json),
+        (users: Either<UserJson[]>) => withDefault(users, [])
       );
-      return expect(
-        caseOf(
-          {
-            Left: err => err.message,
-            Right: result => result
-          },
-          res
-        )
-      ).to.be.rejectedWith(`Unexpected end of JSON input`);
+
+      const usersEmpty: UserJson[] = pipeline(
+        'nothing.json',
+        (fname: string) => readFileContent(fname),
+        (json: Either<string>) => andThen(parseJson, json),
+        (users: Either<UserJson[]>) => withDefault(users, [])
+      );
+
+      expect(usersFull).to.deep.equal([
+        {
+          id: 1,
+          nickname: 'rick',
+          email: 'rick@c137.com'
+        },
+        {
+          id: 2,
+          nickname: 'morty',
+          email: 'morty@c137.com'
+        }
+      ]);
+      expect(usersEmpty).to.deep.equal([]);
     });
   });
 });

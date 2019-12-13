@@ -8,7 +8,7 @@ The `Either` data type encapsulates the idea of a computation that may fail.
 An `Either` value can either be `Right` some value or `Left` some error.
 
 ```ts
-type Either<T> = Right<T> | Left<T>;
+type Either<T> = Right<T> | Left;
 ```
 
 ## Install
@@ -20,68 +20,69 @@ npm install ts.data.either --save
 ## Example
 
 ```ts
-import { map, Either, left, right, caseOf } from 'ts.data.either';
+import { Either, tryCatch, andThen, withDefault } from './either';
 
-type Band = {
-  artist: string;
-  bio: string;
-};
-const bandsJsonWithContent: { [key: string]: string } = {
-  'bands.json': `
+interface UserJson {
+  id: number;
+  nickname: string;
+  email: string;
+}
+
+// throws if file does not exists
+const readFile = (filename: string): string => {
+  const fileSystem: { [key: string]: string } = {
+    'something.json': `
     [
-      {"artist": "Clark", "bio": "Clark bio..."},
-      {"artist": "Plaid", "bio": "Plaid bio..."}
-    ]
-    `
-};
-const bandsJsonWithoutContent: { [key: string]: string } = {
-  'bands.json': ''
-};
-const generateExample = (
-  filenameToRead: string,
-  folder: { [key: string]: string }
-) => {
-  const readFile = (filename: string): Either<string> => {
-    if (folder.hasOwnProperty(filename)) {
-      return right(folder[filename]);
-    }
-    return left(new Error(`File ${filename} doesn't exist`));
+      {
+        "id": 1,
+        "nickname": "rick",
+        "email": "rick@c137.com"
+      },
+      {
+        "id": 2,
+        "nickname": "morty",
+        "email": "morty@c137.com"
+      }
+    ]`
   };
-  const bandsJson = readFile(filenameToRead);
-  const bands = map(json => JSON.parse(json) as Band[], bandsJson);
-  const bandNames = map(bands => bands.map(band => band.artist), bands);
-  return bandNames;
+  const fileContents = fileSystem[filename];
+  if (fileContents === undefined) {
+    throw new Error(`${filename} does not exists.`);
+  }
+  return fileContents;
 };
 
-// Should compute band names properly
-let bandNames = generateExample('bands.json', bandsJsonWithContent);
-caseOf(
-  {
-    Left: err => err.message,
-    Right: names => names
-  },
-  bandNames
-).then(names => console.log(names)); // ['Clark', 'Plaid']
+// Wraps the read file operation in an Either
+const readFileContent = (filename: string): Either<string> =>
+  tryCatch(
+    () => readFile(filename),
+    err => err
+  );
 
-// Should fail becasue file non-existing.json doesn't exist
-bandNames = generateExample('non-existing.json', bandsJsonWithContent);
-caseOf(
-  {
-    Left: err => err.message,
-    Right: names => names
-  },
-  bandNames
-).catch(err => console.log(err)); // File non-existing.json doesn't exist
+// Wraps the json parsing operation in an Either
+const parseJson = (json: string): Either<UserJson[]> =>
+  tryCatch(
+    () => JSON.parse(json),
+    err => new Error(`There was an error parsing this Json.`)
+  );
 
-// should fail becasue file content is not valid Json
-bandNames = generateExample('bands.json', bandsJsonWithoutContent);
-caseOf(
-  {
-    Left: err => err.message,
-    Right: names => names
-  },
-  bandNames
-).catch(err => console.log(err)); // Unexpected end of JSON input
+// The pipeline function just makes function invocations flow
+const pipeline = (initialValue: any, ...fns: Function[]) =>
+  fns.reduce((acc, fn) => fn(acc), initialValue);
+
+const usersFull: UserJson[] = pipeline(
+  'something.json',
+  (fname: string) => readFileContent(fname),
+  (json: Either<string>) => andThen(parseJson, json),
+  (users: Either<UserJson[]>) => withDefault(users, [])
+); // returns the Array of users because all intermediate operations have succeeded
+
+const usersEmpty: UserJson[] = pipeline(
+  'nothing.json',
+  (fname: string) => readFileContent(fname),
+  (json: Either<string>) => andThen(parseJson, json),
+  (users: Either<UserJson[]>) => withDefault(users, [])
+); // returns an empty Array because the readFile operations failed
 ```
 
 ## Api
@@ -105,7 +106,8 @@ right(5); // Right<number>(5)
 Creates an instance of `Left`.
 
 ```ts
-left('Something bad happened'); // Left<string>('Something bad happened')
+left(new Error('Something bad happened')); // Left<unknown>(Error('Something bad happened'))
+left<number>(new Error('The calculation failed')); // Left<number>(Error('The calculation failed'))
 ```
 
 ### isRight
@@ -143,9 +145,9 @@ withDefault(left(new Error('Wrong!')), 0); // 0
 
 ### caseOf
 
-`caseOf<A, B>(caseof: {Right: (v: A) => B; Left: (v: Error) => any;}, value: Either<A>): Promise<B>`
+`caseOf<A, B>(caseof: {Right: (v: A) => B; Left: (err: Error) => B;}, value: Either<A>): B`
 
-Run different computations depending on whether an `Either` is `Right` or `Left` and returns a `Promise`
+Run different computations depending on whether an `Either` is `Right` or `Left` and returns the result.
 
 ```ts
 caseOf(
@@ -154,7 +156,7 @@ caseOf(
     Right: n => `Launch ${n} missiles`
   },
   right('5')
-).then(res => console.log(res)); // 'Launch 5 missiles'
+); // 'Launch 5 missiles'
 ```
 
 ### map
@@ -195,6 +197,7 @@ const removeFirstElement = <T>(arr: T[]): T[] => {
   }
   return arr.slice(1);
 };
+
 const safeRemoveFirst = <T>(arr: T[]): Either<T[]> => {
   try {
     return right(removeFirstElement(arr));
@@ -202,10 +205,20 @@ const safeRemoveFirst = <T>(arr: T[]): Either<T[]> => {
     return left(error);
   }
 };
-const result = andThen(
-  arr =>
-    andThen(arr2 => safeRemoveFirstElement(arr2), safeRemoveFirstElement(arr)),
-  safeRemoveFirstElement(['a', 'b'])
+
+// The pipeline function just makes function invocations flow
+const pipeline = (initialValue: any, ...fns: Function[]) =>
+  fns.reduce((acc, fn) => fn(acc), initialValue);
+
+const result: string[] = pipeline(
+  ['a', 'b', 'c'],
+  safeRemoveFirst, // Right(['b', 'c'])
+  (arr: Either<string[]>) => andThen(safeRemoveFirst, arr), // Right(['b'])
+  (arr: Either<string[]>) => andThen(safeRemoveFirst, arr), // Right([])
+  (arr: Either<string[]>) => andThen(safeRemoveFirst, arr), // Left(Error('Array is empty'))
+  (arr: Either<string[]>) => andThen(safeRemoveFirst, arr), // Left(Error('Array is empty'))
+  (arr: Either<string[]>) => withDefault(arr, [])
 );
-withDefault(result, 'default val'); // 'default val'
+
+console.log(result); // []
 ```
