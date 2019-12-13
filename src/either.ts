@@ -62,15 +62,15 @@ export const andThen = <A, B>(
 export const caseOf = <A, B>(
   caseof: {
     Right: (v: A) => B;
-    Left: (v: Error) => any;
+    Left: (err: Error) => B;
   },
   value: Either<A>
-): Promise<B> => {
+): B => {
   switch (isLeft(value)) {
     case true:
-      return Promise.reject(caseof.Left((value as Left<A>)._error));
+      return caseof.Left((value as Left<A>)._error);
     case false:
-      return Promise.resolve(caseof.Right((value as Right<A>)._value));
+      return caseof.Right((value as Right<A>)._value);
   }
 };
 
