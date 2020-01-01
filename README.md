@@ -11,6 +11,8 @@ An `Either` value can either be `Right` some value or `Left` some error.
 type Either<T> = Right<T> | Left;
 ```
 
+> If this is new to you, you may want to read the introductory article [Safer code with container types](https://blog.logrocket.com/safer-code-with-container-types-either-and-maybe/) about why and how to use this library.
+
 ## Install
 
 ```
